@@ -7,6 +7,9 @@ using System.Configuration;
 using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.DataHandler.Encoder;
 using Microsoft.Owin.Security.Jwt;
+using shipmentsAPI.DBContext;
+using shipmentsAPI.Models;
+using System.Collections.Generic;
 
 [assembly: OwinStartup(typeof(shipmentsAPI.Startup))]
 namespace shipmentsAPI
@@ -23,6 +26,8 @@ namespace shipmentsAPI
 
             app.UseCors(CorsOptions.AllowAll);
             app.UseWebApi(config);
+
+            Seed();
         }
 
         private void ConfigureAuthZero(IAppBuilder app)
@@ -40,6 +45,26 @@ namespace shipmentsAPI
                     new SymmetricKeyIssuerSecurityTokenProvider(issuer, secret)
                 }
             });
+        }
+
+        private static void Seed()
+        {
+            var shipments = ShipmentDb.Open();
+            var data = new List<Shipment>()
+                {
+                    new Shipment
+                    {
+                        Destination = "Norrköping",
+                        Origin = "Linköping"
+                    },
+                new Shipment
+                    {
+                        Destination = "Stockholm",
+                        Origin = "Göteborg"
+                    }
+                };
+
+            shipments.InsertBatch(data);
         }
     }
 }

@@ -1,14 +1,25 @@
-﻿using shipmentsAPI.Models;
+﻿using MongoDB.Driver;
+using shipmentsAPI.DBContext;
+using shipmentsAPI.Models;
+using System.Collections.Generic;
 using System.Web.Http;
 
 namespace shipmentsAPI.Controllers
 {
-    [Authorize]
     public class ShipmentsController : ApiController
     {
-        public IHttpActionResult Get()
+        MongoCollection<Shipment> _shipments;
+
+        public ShipmentsController()
         {
-            return Ok(Shipment.Create());
+            _shipments = ShipmentDb.Open();
         }
+
+
+        public IEnumerable<Shipment> Get()
+        {
+            return _shipments.FindAll();
+        }
+
     }
 }
