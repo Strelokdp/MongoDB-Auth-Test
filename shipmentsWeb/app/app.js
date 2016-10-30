@@ -7,7 +7,7 @@
     'angular-jwt'
 ])
 
-.config(function ($routeProvider, authProvider) {
+.config(function ($routeProvider, authProvider, jwtOptionsProvider, jwtInterceptorProvider, $httpProvider) {
     $routeProvider
         .when('/', {
             controller: 'HomeCtrl',
@@ -24,20 +24,63 @@
         clientID: AUTH0_CLIENT_ID,
         loginUrl: '/login'
     });
+
+    var refreshingToken = null;
+    jwtOptionsProvider.config({
+        tokenGetter: function (store, jwtHelper) {
+        var token = store.get('token');
+        var refreshToken = store.get('refreshToken');
+        if (token) {
+            if (!jwtHelper.isTokenExpired(token)) {
+                return store.get('token');
+            } else {
+                if (refreshingToken === null) {
+                    refreshingToken = auth.refreshIdToken(refreshToken).then(function (idToken) {
+                        store.set('token', idToken);
+                        return idToken;
+                    }).finally(function () {
+                        refreshingToken = null;
+                    });
+                }
+                return refreshingToken;
+            }
+        }
+    },
+        whiteListedDomains: ['localhost'],
+        unauthenticatedRedirectPath: '/login'
+    });
+    
+    $httpProvider.interceptors.push('jwtInterceptor');
+   
 })
 
 .run(function ($rootScope, auth, store, jwtHelper, $location) {
+    var refreshingToken = null;
     $rootScope.$on('$locationChangeStart', function () {
-       if (!auth.isAuthenticated) {
-           var token = store.get('token');
-           if (token) {
-               if (!jwtHelper.isTokenExpired(token)) {
-                   auth.authenticate(store.get('profile'), token);
-               } else {
-                   $location.path('/login');
-               }
-           }
-       }
+        var token = store.get('token');
+        var refreshToken = store.get('refreshToken');
+
+        if (token) {
+            if (!jwtHelper.isTokenExpired(token)) {
+                if (!auth.isAuthenticated) {
+                    auth.authenticate(store.get('profile'), token);
+                }
+            } else {
+                if (refreshToken) {
+                    if (refreshingToken === null) {
+                        refreshingToken = auth.refreshIdToken(refreshToken).then(function (idToken) {
+                            store.set('token', idToken);
+                            auth.authenticate(store.get('profile'), idToken);
+                        }).finally(function () {
+                            refreshingToken = null;
+                        });
+                    }
+                    return refreshingToken;
+                } else {
+                    $location.path('/login');
+                }
+            }
+        }
     });
     auth.hookEvents();
 });
